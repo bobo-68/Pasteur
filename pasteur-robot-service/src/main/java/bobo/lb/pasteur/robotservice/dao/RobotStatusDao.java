@@ -6,12 +6,16 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.StampedLock;
 
 @Component
 public class RobotStatusDao {
 
     @Resource
-    private RedisTemplate<String, Object> redisTemplate;
+    private RedisTemplate<String, RobotStatus> redisTemplate;
 
     public void updateCurrentStatus(long robotId, RobotStatus status) {
         String key = "cur-status:" + robotId;

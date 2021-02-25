@@ -6,6 +6,7 @@ import bobo.lb.pasteur.robotservice.dto.RobotStatus;
 import bobo.lb.pasteur.robotservice.service.RobotCommandService;
 import bobo.lb.pasteur.robotservice.service.RobotStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
@@ -74,6 +75,8 @@ public class RobotServer {
 
         Selector selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+        System.out.println("some change...");
 
         while(true) {
             int readyKeyNum = selector.select();
@@ -146,7 +149,6 @@ public class RobotServer {
         } catch (IOException ioe) {
             throw ioe;
         }
-
     }
 
     private void sendRobotCommand(SelectionKey key) throws IOException {

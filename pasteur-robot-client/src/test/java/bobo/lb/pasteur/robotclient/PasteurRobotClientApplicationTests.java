@@ -25,29 +25,47 @@ class PasteurRobotClientApplicationTests {
 
     }
 
-    public static void main(String[] args) {
-        Random random = new Random();
-        long id = random.nextInt();
-        int battery = random.nextInt(100);
-        int disinfectant = random.nextInt(100);
-        int carriage = random.nextInt(16);
-        double xPos = random.nextDouble();
-        double yPos = random.nextDouble();
-        RobotStateEnum state = RobotStateEnum.READY;
-        LocalDateTime timestamp = LocalDateTime.now();
-        RobotStatus status = new RobotStatus(id, battery, disinfectant,
-                carriage, xPos, yPos,
-                state, timestamp);
-//        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-//             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream))
-//        {
-//            objectOutputStream.writeObject(status);
-//            System.out.println(byteArrayOutputStream.toByteArray().length);
-//        } catch (IOException e) {
-//        }
-        byte[] bytes =
-                ProtostuffIOUtil.toByteArray(status, schema, LinkedBuffer.allocate(LinkedBuffer.DEFAULT_BUFFER_SIZE));
-        System.out.println(bytes.length);
-    }
+//    public static void main(String[] args) {
+//        Random random = new Random();
+//        long id = random.nextInt();
+//        int battery = random.nextInt(100);
+//        int disinfectant = random.nextInt(100);
+//        int carriage = random.nextInt(16);
+//        double xPos = random.nextDouble();
+//        double yPos = random.nextDouble();
+//        RobotStateEnum state = RobotStateEnum.READY;
+//        LocalDateTime timestamp = LocalDateTime.now();
+//        RobotStatus status = new RobotStatus(id, battery, disinfectant,
+//                carriage, xPos, yPos,
+//                state, timestamp);
+////        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+////             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream))
+////        {
+////            objectOutputStream.writeObject(status);
+////            System.out.println(byteArrayOutputStream.toByteArray().length);
+////        } catch (IOException e) {
+////        }
+//        System.out.println(status);
+//        byte[] bytes =
+//                ProtostuffIOUtil.toByteArray(status, schema, LinkedBuffer.allocate(LinkedBuffer.DEFAULT_BUFFER_SIZE));
+//        System.out.println(bytes.length);
+//
+//        id = random.nextInt();
+//        battery = random.nextInt(100);
+//        disinfectant = random.nextInt(100);
+//         carriage = random.nextInt(16);
+//         xPos = random.nextDouble();
+//         yPos = random.nextDouble();
+//         state = RobotStateEnum.READY;timestamp = LocalDateTime.now();
+//        RobotStatus newStatus = new RobotStatus(id, battery, disinfectant,
+//                carriage, xPos, yPos,
+//                state, timestamp);
+//
+//        System.out.println(newStatus);
+//
+//        ProtostuffIOUtil.mergeFrom(bytes, newStatus, schema);
+//
+//        System.out.println(newStatus);
+//    }
 
 }

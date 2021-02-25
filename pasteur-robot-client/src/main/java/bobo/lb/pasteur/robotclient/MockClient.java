@@ -59,7 +59,13 @@ public class MockClient {
                 if(key.isReadable()) {
                     SocketChannel socketChannel = (SocketChannel) key.channel();
                     ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
-                    socketChannel.read(byteBuffer);
+                    try {
+                        socketChannel.read(byteBuffer);
+                    } catch (IOException e) {
+                        key.cancel();
+                        connect();
+                        continue;
+                    }
                     byteBuffer.flip();
                     byte[] bytes = new byte[byteBuffer.limit()];
                     byteBuffer.get(bytes);
@@ -84,7 +90,9 @@ public class MockClient {
                         objectOutputStream.writeObject(robotStatus);
                         socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
                     } catch (IOException e) {
-                        throw e;
+                        key.cancel();
+                        connect();
+                        continue;
                     }
 
 //                    key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);

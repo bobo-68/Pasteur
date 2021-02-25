@@ -39,6 +39,78 @@ public class RobotStatus implements Serializable {
         return timestamp;
     }
 
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public int getBattery() {
+        return battery;
+    }
+
+    public void setBattery(int battery) {
+        this.battery = battery;
+    }
+
+    public int getDisinfectant() {
+        return disinfectant;
+    }
+
+    public void setDisinfectant(int disinfectant) {
+        this.disinfectant = disinfectant;
+    }
+
+    public int getCarriage() {
+        return carriage;
+    }
+
+    public void setCarriage(int carriage) {
+        this.carriage = carriage;
+    }
+
+    public double getxPos() {
+        return xPos;
+    }
+
+    public void setxPos(double xPos) {
+        this.xPos = xPos;
+    }
+
+    public double getyPos() {
+        return yPos;
+    }
+
+    public void setyPos(double yPos) {
+        this.yPos = yPos;
+    }
+
+    public RobotStateEnum getState() {
+        return state;
+    }
+
+    public void setState(RobotStateEnum state) {
+        this.state = state;
+    }
+
+    public RobotTask getTask() {
+        return task;
+    }
+
+    public void setTask(RobotTask task) {
+        this.task = task;
+    }
+
+    public boolean isDisconnect() {
+        return disconnect;
+    }
+
+    public void setDisconnect(boolean disconnect) {
+        this.disconnect = disconnect;
+    }
+
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
+    }
+
     public RobotStatus(long id, int battery, int disinfectant,
                        int carriage, double xPos, double yPos,
                        RobotStateEnum state, LocalDateTime timestamp) {

@@ -6,15 +6,15 @@ import bobo.lb.pasteur.robotservice.dto.enums.RobotCommandTypeEnum;
 import bobo.lb.pasteur.robotservice.service.RobotCommandService;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RobotCommandServiceImpl implements RobotCommandService {
 
-    private HashMap<Long, RobotCommand> commandMap;
+    private ConcurrentHashMap<Long, RobotCommand> commandMap;
 
     public RobotCommandServiceImpl() {
-        commandMap = new HashMap<>();
+        commandMap = new ConcurrentHashMap<>();
     }
 
     @Override
