@@ -12,7 +12,7 @@ public class PasteurRobotClientApplication {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         SpringApplication.run(PasteurRobotClientApplication.class, args);
-        MockClient mockClient = new MockClient(3000);
+        MockClient mockClient = new MockClient(1000);
         mockClient.start();
     }
 }

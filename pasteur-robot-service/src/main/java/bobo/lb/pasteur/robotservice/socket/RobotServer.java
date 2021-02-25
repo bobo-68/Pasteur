@@ -17,11 +17,12 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.*;
 
 @Component
 public class RobotServer {
 
-    private static final String DEFAULT_IP = "localhost";
+    private static final String DEFAULT_IP = "192.168.1.103";
 
     private static final int DEFAULT_PORT = 8000;
 
@@ -35,6 +36,12 @@ public class RobotServer {
 
     private RobotCommandService robotCommandService;
 
+    private ExecutorService readThreadPool = new ThreadPoolExecutor(
+            4, 6, 60L,
+            TimeUnit.SECONDS, new ArrayBlockingQueue<>(20000));
+    private ExecutorService writeThreadPool = new ThreadPoolExecutor(
+            4, 6, 60L,
+            TimeUnit.SECONDS, new ArrayBlockingQueue<>(20000));
 
     public RobotServer() {
         this(DEFAULT_IP, DEFAULT_PORT);
@@ -69,9 +76,11 @@ public class RobotServer {
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         while(true) {
-            if(selector.select() == 0) {
+            int readyKeyNum = selector.select();
+            if(readyKeyNum == 0) {
                 continue;
             }
+            CountDownLatch latch = new CountDownLatch(readyKeyNum);
 
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
             Iterator<SelectionKey> iterator = selectedKeys.iterator();
@@ -83,22 +92,25 @@ public class RobotServer {
                     SocketChannel socketChannel = serverSocketChannel.accept();
                     socketChannel.configureBlocking(false);
                     socketChannel.register(selector, SelectionKey.OP_READ);
+                    latch.countDown();
                 }
                 else if(key.isReadable()) {
-                    updateRobotStatus(key);
-                    key.interestOps(SelectionKey.OP_WRITE);
+                    readThreadPool.execute(new ReadTask(key, latch));
                 }
                 else if(key.isWritable()) {
-                    sendRobotCommand(key);
-//                    key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
-                    key.interestOps(SelectionKey.OP_READ);
+                    writeThreadPool.execute(new WriteTask(key, latch));
                 }
+            }
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
 
     }
 
-    private void updateRobotStatus(SelectionKey key) throws IOException, ClassNotFoundException {
+    private void updateRobotStatus(SelectionKey key) throws IOException {
         SocketChannel socketChannel = (SocketChannel) key.channel();
 
         ByteBuffer buffer = ByteBuffer.allocate(ROBOT_STATUS_BUFFER_SIZE);
@@ -106,7 +118,7 @@ public class RobotServer {
         buffer.flip();
         byte[] bytes = new byte[buffer.limit()];
         buffer.get(bytes);
-
+        buffer.clear();
 
         try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
              ObjectInputStream objectInputStream =
@@ -129,7 +141,7 @@ public class RobotServer {
             }
 
         } catch (ClassNotFoundException cne) {
-            throw cne;
+            cne.printStackTrace();
             // TODO
         } catch (IOException ioe) {
             throw ioe;
@@ -151,6 +163,54 @@ public class RobotServer {
             socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
         } catch (IOException e) {
             throw e;
+        }
+    }
+
+    private class ReadTask implements Runnable {
+
+        private SelectionKey key;
+
+        private CountDownLatch latch;
+
+        ReadTask(SelectionKey key, CountDownLatch latch) {
+            this.key = key;
+            this.latch = latch;
+        }
+
+        @Override
+        public void run() {
+            try {
+                updateRobotStatus(key);
+                key.interestOps(SelectionKey.OP_WRITE);
+            } catch (IOException e) {
+                key.cancel();
+            } finally {
+                latch.countDown();
+            }
+        }
+    }
+
+    private class WriteTask implements Runnable {
+
+        private SelectionKey key;
+
+        private CountDownLatch latch;
+
+        WriteTask(SelectionKey key, CountDownLatch latch) {
+            this.key = key;
+            this.latch = latch;
+        }
+
+        @Override
+        public void run() {
+            try {
+                sendRobotCommand(key);
+                key.interestOps(SelectionKey.OP_READ);
+            } catch (IOException e) {
+                key.cancel();
+            } finally {
+                latch.countDown();
+            }
         }
     }
 

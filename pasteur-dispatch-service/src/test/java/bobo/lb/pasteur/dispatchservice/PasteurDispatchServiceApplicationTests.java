@@ -1,11 +1,10 @@
-package bobo.lb.pasteur.robotservice;
+package bobo.lb.pasteur.dispatchservice;
 
-import bobo.lb.pasteur.robotservice.dto.RobotStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class PasteurRobotServiceApplicationTests {
+class PasteurDispatchServiceApplicationTests {
 
     @Test
     void contextLoads() {

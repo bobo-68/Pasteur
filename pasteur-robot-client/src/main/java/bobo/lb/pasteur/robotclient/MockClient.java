@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MockClient {
 
-    private String robotServerHost = "192.168.1.104";
+    private String robotServerHost = "192.168.1.103";
 
     private int robotServerPort = 8000;
 
