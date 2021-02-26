@@ -27,7 +27,7 @@ public class MockClient {
 
     private final int CONCURRENCY;
 
-    private final int GROUP_SIZE;
+//    private final int GROUP_SIZE;
 
     private Selector selector;
 
@@ -35,9 +35,17 @@ public class MockClient {
 
     private AtomicInteger count = new AtomicInteger();
 
+    private long start;
+
+    private long end;
+
+    private int requestCount = 0;
+
+    private long totalWaitTime = 0;
+
     public MockClient(int concurrency) throws IOException {
         this.CONCURRENCY = concurrency;
-        this.GROUP_SIZE = concurrency / 100;
+//        this.GROUP_SIZE = concurrency / 100;
         selector = Selector.open();
     }
 
@@ -45,7 +53,9 @@ public class MockClient {
         for(int i=0; i<CONCURRENCY; i++) {
             connect();
         }
+        start = System.currentTimeMillis();
         while(true) {
+
             if(selector.select() == 0) {
                 continue;
             }
@@ -57,6 +67,19 @@ public class MockClient {
                 iterator.remove();
 
                 if(key.isReadable()) {
+                    totalWaitTime += System.currentTimeMillis() - (Long) key.attachment();
+                    ++requestCount;
+                    count.incrementAndGet();
+                    if(count.get() >= CONCURRENCY) {
+                        end = System.currentTimeMillis();
+                        System.out.println("20000 finished !!! in " + (end - start));
+                        System.out.println("Average wait time = " + totalWaitTime / requestCount);
+                        Thread.sleep(Math.max(1, 1000 - end + start));
+                        start = System.currentTimeMillis();
+                        count.set(0);
+                        start = System.currentTimeMillis();
+                    }
+
                     SocketChannel socketChannel = (SocketChannel) key.channel();
                     ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
                     try {
@@ -75,7 +98,9 @@ public class MockClient {
                         ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream))
                     {
                         RobotCommand command = (RobotCommand) objectInputStream.readObject();
-                        System.out.println(command);
+
+//                        System.out.println(command);
+
                     } catch (IOException | ClassNotFoundException e) {
                         e.printStackTrace();
                     }
@@ -89,6 +114,7 @@ public class MockClient {
                     {
                         objectOutputStream.writeObject(robotStatus);
                         socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
+                        key.attach(System.currentTimeMillis());
                     } catch (IOException e) {
                         key.cancel();
                         connect();
@@ -99,12 +125,6 @@ public class MockClient {
                     key.interestOps(SelectionKey.OP_READ);
                 }
 
-                if(count.get() < GROUP_SIZE) {
-                    count.getAndIncrement();
-                } else {
-                    count.set(0);
-                    Thread.sleep(10);
-                }
             }
         }
     }
@@ -120,12 +140,13 @@ public class MockClient {
              ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream))
         {
             objectOutputStream.writeObject(robotInfo);
+
             socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
         } catch (IOException e) {
             throw e;
         }
 
-        socketChannel.register(selector, SelectionKey.OP_READ);
+        socketChannel.register(selector, SelectionKey.OP_READ).attach(System.currentTimeMillis());
     }
 
     public void sendMockStatus() {
