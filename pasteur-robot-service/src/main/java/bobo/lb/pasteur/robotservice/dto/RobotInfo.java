@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 public class RobotInfo implements Serializable {
 
+    private static final long serialVersionUID = -1848002223060441592L;
     private long id;
 
     private String host;

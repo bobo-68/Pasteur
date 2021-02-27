@@ -37,8 +37,6 @@ class Assistance {
                 robotServer.start();
             } catch (IOException e) {
                 e.printStackTrace();
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
             }
         }).start();
     }

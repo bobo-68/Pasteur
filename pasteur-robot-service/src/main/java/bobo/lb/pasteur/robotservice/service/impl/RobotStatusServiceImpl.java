@@ -57,7 +57,7 @@ public class RobotStatusServiceImpl implements RobotStatusService {
         long robotId = robotInfo.getId();
         String path = String.format(
                 "http://%s:%s/robots/%s/login",
-                "192.168.1.103", 9090, robotId);
+                "192.168.64.1", 9090, robotId);
 
 //        WebClient webClient = WebClient.create(path);
 //        webClient.post()

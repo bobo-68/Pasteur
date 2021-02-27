@@ -9,163 +9,43 @@ import bobo.lb.pasteur.robotservice.dto.enums.RobotStateEnum;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.security.Key;
 import java.time.LocalDateTime;
-import java.util.Iterator;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MockClient {
 
-    private String robotServerHost = "192.168.1.103";
-
-    private int robotServerPort = 8000;
-
+    private final String robotServerHost = "192.168.64.1";
+    private final int robotServerPort = 8000;
     private final int CONCURRENCY;
-
-//    private final int GROUP_SIZE;
-
-    private Selector selector;
-
-    private AtomicInteger clientNum = new AtomicInteger();
-
-    private AtomicInteger count = new AtomicInteger();
-
-    private long start;
-
-    private long end;
-
-    private int requestCount = 0;
-
-    private long totalWaitTime = 0;
+    private final Selector selector;
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(10);
+    private final AtomicInteger count = new AtomicInteger();
+    private volatile long start;
+    private volatile long end;
+    private volatile int connectionNum = 0;
+    private int processCount = 0;
+    private long totalProcessTime = 0;
+    AtomicInteger clientNum = new AtomicInteger();
+    private final byte[] mockStatusBytes;
+    private final byte[] mockInfoBytes;
+    private ThreadLocal<ByteBuffer> readBuffer = new ThreadLocal<>();
 
     public MockClient(int concurrency) throws IOException {
         this.CONCURRENCY = concurrency;
-//        this.GROUP_SIZE = concurrency / 100;
+
         selector = Selector.open();
-    }
-
-    public void start() throws IOException, InterruptedException {
-        for(int i=0; i<CONCURRENCY; i++) {
-            connect();
-        }
-        start = System.currentTimeMillis();
-        while(true) {
-
-            if(selector.select() == 0) {
-                continue;
-            }
-
-            Set<SelectionKey> selectedKeys = selector.selectedKeys();
-            Iterator<SelectionKey> iterator = selectedKeys.iterator();
-            while(iterator.hasNext()) {
-                SelectionKey key = iterator.next();
-                iterator.remove();
-
-                if(key.isReadable()) {
-                    totalWaitTime += System.currentTimeMillis() - (Long) key.attachment();
-                    ++requestCount;
-                    count.incrementAndGet();
-                    if(count.get() >= CONCURRENCY) {
-                        end = System.currentTimeMillis();
-                        System.out.println("20000 finished !!! in " + (end - start));
-                        System.out.println("Average wait time = " + totalWaitTime / requestCount);
-                        Thread.sleep(Math.max(1, 1000 - end + start));
-                        start = System.currentTimeMillis();
-                        count.set(0);
-                        start = System.currentTimeMillis();
-                    }
-
-                    SocketChannel socketChannel = (SocketChannel) key.channel();
-                    ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
-                    try {
-                        socketChannel.read(byteBuffer);
-                    } catch (IOException e) {
-                        key.cancel();
-                        connect();
-                        continue;
-                    }
-                    byteBuffer.flip();
-                    byte[] bytes = new byte[byteBuffer.limit()];
-                    byteBuffer.get(bytes);
-                    key.interestOps(SelectionKey.OP_WRITE);
-
-                    try(ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
-                        ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream))
-                    {
-                        RobotCommand command = (RobotCommand) objectInputStream.readObject();
-
-//                        System.out.println(command);
-
-                    } catch (IOException | ClassNotFoundException e) {
-                        e.printStackTrace();
-                    }
-                }
-                else if(key.isWritable()) {
-                    SocketChannel socketChannel = (SocketChannel) key.channel();
-                    RobotStatus robotStatus = mockRobotStatus();
-
-                    try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                         ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream))
-                    {
-                        objectOutputStream.writeObject(robotStatus);
-                        socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
-                        key.attach(System.currentTimeMillis());
-                    } catch (IOException e) {
-                        key.cancel();
-                        connect();
-                        continue;
-                    }
-
-//                    key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
-                    key.interestOps(SelectionKey.OP_READ);
-                }
-
-            }
-        }
-    }
-
-    public void connect() throws IOException {
-        SocketChannel socketChannel = SocketChannel.open();
-        socketChannel.connect(new InetSocketAddress(robotServerHost, robotServerPort));
-        socketChannel.configureBlocking(false);
-
-        RobotInfo robotInfo = mockRobotInfo();
-
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream))
-        {
-            objectOutputStream.writeObject(robotInfo);
-
-            socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
-        } catch (IOException e) {
-            throw e;
-        }
-
-        socketChannel.register(selector, SelectionKey.OP_READ).attach(System.currentTimeMillis());
-    }
-
-    public void sendMockStatus() {
-
-    }
-
-    private RobotInfo mockRobotInfo() {
-        int id = clientNum.getAndIncrement();
-        String host = "localhost";
         Random random = new Random();
-        int line = random.nextInt(20);
-        String station = "东川路";
-        int trainId = random.nextInt(7000);
-        return new RobotInfo(id, host, line, station, trainId);
-    }
 
-    private RobotStatus mockRobotStatus() {
-        Random random = new Random();
-        long id = random.nextInt(clientNum.get());
+        // prepare mock status
+        long id = random.nextInt(CONCURRENCY);
         int battery = random.nextInt(100);
         int disinfectant = random.nextInt(100);
         int carriage = random.nextInt(16);
@@ -173,8 +53,196 @@ public class MockClient {
         double yPos = random.nextDouble();
         RobotStateEnum state = RobotStateEnum.READY;
         LocalDateTime timestamp = LocalDateTime.now();
-        return new RobotStatus(id, battery, disinfectant,
+        RobotStatus mockStatus = new RobotStatus(id, battery, disinfectant,
                 carriage, xPos, yPos,
                 state, timestamp);
+
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
+            objectOutputStream.writeObject(mockStatus);
+            byte[] mockStatusRealBytes = byteArrayOutputStream.toByteArray();
+            mockStatusBytes = wrap(mockStatusRealBytes);
+        }
+
+        // prepare mock info
+
+        int id2 = 0;
+        String host = "localhost";
+        int line = 12;
+        String station = "东川路";
+        int trainId = 15;
+        RobotInfo mockInfo = new RobotInfo(id2, host, line, station, trainId);
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
+            objectOutputStream.writeObject(mockInfo);
+            byte[] mockInfoRealBytes = byteArrayOutputStream.toByteArray();
+            mockInfoBytes = wrap(mockInfoRealBytes);
+        }
+    }
+
+    public void start() throws IOException, InterruptedException {
+
+        for(int i = 0; i < CONCURRENCY; i++) {
+            connect();
+        }
+
+        start = System.currentTimeMillis();
+
+        while(true) {
+
+            // connect CONCURRENCY
+//            if(connectionNum < 50) {
+//                ConcurrentLinkedQueue<SocketChannel> registerQueue = new ConcurrentLinkedQueue<>();
+//                CountDownLatch latch0 = new CountDownLatch(CONCURRENCY / 50);
+//                for (int i = 0; i < CONCURRENCY / 50; i++) {
+//                    threadPool.execute(() -> {
+//                        connect(latch0, registerQueue);
+//                    });
+//                }
+//                System.out.println("Connection created " + (connectionNum+1) + "/50");
+//                connectionNum++;
+//                latch0.await();
+//                while(!registerQueue.isEmpty()) {
+//                    registerQueue.poll().register(selector, SelectionKey.OP_READ);
+//                }
+//            }
+
+            if(selector.select() == 0) {
+                continue;
+            }
+
+            Set<SelectionKey> selectedKeys = selector.selectedKeys();
+            CountDownLatch latch = new CountDownLatch(selectedKeys.size());
+//            System.out.println("key num = " + selectedKeys.size());
+            Iterator<SelectionKey> iterator = selectedKeys.iterator();
+
+            while(iterator.hasNext()) {
+                SelectionKey key = iterator.next();
+                iterator.remove();
+
+                if(key.isReadable()) {
+                    threadPool.execute(new ReadTask(key, latch));
+                    key.interestOps(SelectionKey.OP_WRITE);
+                }
+                else if(key.isWritable()) {
+                    threadPool.execute(new WriteTask(key, latch));
+                    key.interestOps(SelectionKey.OP_READ);
+                }
+            }
+            latch.await();
+            if(count.get() >= CONCURRENCY) {
+                end = System.currentTimeMillis();
+                count.set(0);
+                long pt = end - start;
+                System.out.println(CONCURRENCY + " requests used " + pt + "secs.");
+                totalProcessTime += pt;
+                System.out.println("Average process time is " + (totalProcessTime/(++processCount)));
+                pt = System.currentTimeMillis() - start;
+                if(pt < 1000) {
+                    Thread.sleep(1000 - pt);
+                }
+                start = System.currentTimeMillis();
+            }
+//            System.out.println("Round finished.");
+        }
+    }
+
+//    public void connect(CountDownLatch latch, Queue<SocketChannel> registerQueue) {
+//        count.getAndIncrement();
+//        try {
+//            SocketChannel socketChannel = null;
+//            try {
+//                socketChannel = SocketChannel.open();
+//                socketChannel.connect(new InetSocketAddress(robotServerHost, robotServerPort));
+//                socketChannel.configureBlocking(false);
+//                socketChannel.write(ByteBuffer.wrap(mockInfoBytes));
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            registerQueue.offer(socketChannel);
+//            System.out.println("Connect " + clientNum.incrementAndGet());
+//        } finally {
+//            latch.countDown();
+//        }
+//    }
+
+    public void connect() {
+        count.getAndIncrement();
+        SocketChannel socketChannel = null;
+        try {
+            socketChannel = SocketChannel.open();
+            socketChannel.connect(new InetSocketAddress(robotServerHost, robotServerPort));
+            socketChannel.configureBlocking(false);
+            socketChannel.write(ByteBuffer.wrap(mockInfoBytes));
+            socketChannel.register(selector, SelectionKey.OP_READ);
+            System.out.println("Connect " + clientNum.incrementAndGet());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class ReadTask implements Runnable {
+        SelectionKey key;
+        private CountDownLatch latch;
+
+        public ReadTask(SelectionKey key, CountDownLatch latch) {
+            this.key = key;
+            this.latch = latch;
+        }
+
+        @Override
+        public void run() {
+            try {
+                ByteBuffer buffer = readBuffer.get();
+                if(buffer == null) {
+                    buffer = ByteBuffer.allocate(1048576);
+                    readBuffer.set(buffer);
+                }
+                ((SocketChannel) key.channel()).read(buffer);
+                buffer.clear();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
+            }
+        }
+    }
+
+    private class WriteTask implements Runnable {
+        SelectionKey key;
+        private CountDownLatch latch;
+
+        public WriteTask(SelectionKey key, CountDownLatch latch) {
+            this.key = key;
+            this.latch = latch;
+        }
+
+        @Override
+        public void run() {
+            count.getAndIncrement();
+            try {
+                ((SocketChannel) key.channel()).write(ByteBuffer.wrap(mockStatusBytes));
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
+            }
+        }
+    }
+
+
+    private byte[] wrap(byte[] realBytes) {
+        byte[] bytes = new byte[realBytes.length + 4];
+        int2bytes(bytes, realBytes.length);
+        System.arraycopy(realBytes, 0, bytes, 4, realBytes.length);
+        return bytes;
+    }
+
+    private void int2bytes(byte[] bytes, int x) {
+        bytes[0] = (byte) (x >>> 24);
+        bytes[1] = (byte) (x >>> 16);
+        bytes[2] = (byte) (x >>> 8);
+        bytes[3] = (byte) x;
     }
 }

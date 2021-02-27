@@ -1,12 +1,8 @@
 package bobo.lb.pasteur.robotservice.socket;
 
-import bobo.lb.pasteur.robotservice.dto.RobotCommand;
-import bobo.lb.pasteur.robotservice.dto.RobotInfo;
-import bobo.lb.pasteur.robotservice.dto.RobotStatus;
 import bobo.lb.pasteur.robotservice.service.RobotCommandService;
 import bobo.lb.pasteur.robotservice.service.RobotStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
@@ -16,18 +12,17 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 
 @Component
 public class RobotServer {
 
-    private static final String DEFAULT_IP = "192.168.1.103";
+    private ConcurrentHashMap<SelectionKey, byte[]> halfPackMap = new ConcurrentHashMap<>();
+
+    private static final String DEFAULT_IP = "192.168.64.1";
 
     private static final int DEFAULT_PORT = 8000;
-
-    private static final int ROBOT_STATUS_BUFFER_SIZE = 1024;
 
     private final String ip;
 
@@ -37,12 +32,11 @@ public class RobotServer {
 
     private RobotCommandService robotCommandService;
 
-    private ExecutorService readThreadPool = new ThreadPoolExecutor(
-            4, 6, 60L,
+    private ExecutorService threadPool = new ThreadPoolExecutor(
+            8, 12, 60L,
             TimeUnit.SECONDS, new ArrayBlockingQueue<>(20000));
-    private ExecutorService writeThreadPool = new ThreadPoolExecutor(
-            4, 6, 60L,
-            TimeUnit.SECONDS, new ArrayBlockingQueue<>(20000));
+
+    private ThreadLocal<ByteBuffer> readBuffer = new ThreadLocal<>();
 
     public RobotServer() {
         this(DEFAULT_IP, DEFAULT_PORT);
@@ -67,7 +61,9 @@ public class RobotServer {
         this.robotCommandService = robotCommandService;
     }
 
-    public void start() throws IOException, ClassNotFoundException {
+    /* */
+
+    public void start() throws IOException {
 
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.socket().bind(new InetSocketAddress(ip, port));
@@ -75,8 +71,6 @@ public class RobotServer {
 
         Selector selector = Selector.open();
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-
-        System.out.println("some change...");
 
         while(true) {
             int readyKeyNum = selector.select();
@@ -87,6 +81,7 @@ public class RobotServer {
 
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
             Iterator<SelectionKey> iterator = selectedKeys.iterator();
+            List<SocketChannel> registerList = new LinkedList<>();
             while(iterator.hasNext()) {
                 SelectionKey key = iterator.next();
                 iterator.remove();
@@ -94,126 +89,28 @@ public class RobotServer {
                 if(key.isAcceptable()) {
                     SocketChannel socketChannel = serverSocketChannel.accept();
                     socketChannel.configureBlocking(false);
-                    socketChannel.register(selector, SelectionKey.OP_READ);
+                    registerList.add(socketChannel);
                     latch.countDown();
                 }
                 else if(key.isReadable()) {
-                    readThreadPool.execute(new ReadTask(key, latch));
+                    key.interestOps(SelectionKey.OP_WRITE);
+                    threadPool.execute(new ReadTask(key, latch, robotStatusService, halfPackMap, readBuffer));
                 }
                 else if(key.isWritable()) {
-                    writeThreadPool.execute(new WriteTask(key, latch));
+                    key.interestOps(SelectionKey.OP_READ);
+                    threadPool.execute(new WriteTask(key, latch, robotCommandService));
                 }
             }
             try {
                 latch.await();
+                for(SocketChannel channel : registerList) {
+                    channel.register(selector, SelectionKey.OP_READ);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
 
-    }
-
-    private void updateRobotStatus(SelectionKey key) throws IOException {
-        SocketChannel socketChannel = (SocketChannel) key.channel();
-
-        ByteBuffer buffer = ByteBuffer.allocate(ROBOT_STATUS_BUFFER_SIZE);
-        socketChannel.read(buffer);
-        buffer.flip();
-        byte[] bytes = new byte[buffer.limit()];
-        buffer.get(bytes);
-        buffer.clear();
-
-        try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
-             ObjectInputStream objectInputStream =
-                     new ObjectInputStream(byteArrayInputStream);)
-        {
-            Object message = objectInputStream.readObject();
-
-            if(message instanceof RobotStatus) {
-                RobotStatus robotStatus = (RobotStatus) message;
-                if(robotStatus.disconnect()) {
-                    socketChannel.close();
-                }
-                key.attach(robotStatus.getId());
-                robotStatusService.writeStatus(robotStatus);
-            }
-            else if(message instanceof RobotInfo) {
-                RobotInfo robotInfo = (RobotInfo) message;
-                key.attach(robotInfo.getId());
-                robotStatusService.login(robotInfo);
-            }
-
-        } catch (ClassNotFoundException cne) {
-            cne.printStackTrace();
-            // TODO
-        } catch (IOException ioe) {
-            throw ioe;
-        }
-    }
-
-    private void sendRobotCommand(SelectionKey key) throws IOException {
-
-        SocketChannel socketChannel = (SocketChannel) key.channel();
-
-        long robotId = (Long) key.attachment();
-        RobotCommand command = robotCommandService.queryCommandFor(robotId);
-
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(1024);
-             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream))
-        {
-            objectOutputStream.writeObject(command);
-            socketChannel.write(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
-        } catch (IOException e) {
-            throw e;
-        }
-    }
-
-    private class ReadTask implements Runnable {
-
-        private SelectionKey key;
-
-        private CountDownLatch latch;
-
-        ReadTask(SelectionKey key, CountDownLatch latch) {
-            this.key = key;
-            this.latch = latch;
-        }
-
-        @Override
-        public void run() {
-            try {
-                updateRobotStatus(key);
-                key.interestOps(SelectionKey.OP_WRITE);
-            } catch (IOException e) {
-                key.cancel();
-            } finally {
-                latch.countDown();
-            }
-        }
-    }
-
-    private class WriteTask implements Runnable {
-
-        private SelectionKey key;
-
-        private CountDownLatch latch;
-
-        WriteTask(SelectionKey key, CountDownLatch latch) {
-            this.key = key;
-            this.latch = latch;
-        }
-
-        @Override
-        public void run() {
-            try {
-                sendRobotCommand(key);
-                key.interestOps(SelectionKey.OP_READ);
-            } catch (IOException e) {
-                key.cancel();
-            } finally {
-                latch.countDown();
-            }
-        }
     }
 
 }
