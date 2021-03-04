@@ -54,16 +54,21 @@ public class RobotStatusDao {
      * @return
      */
     public List<RobotTask> updateStatusAndGetTaskInBatch(List<RobotStatus> statuses) {
+//        long time1 = System.currentTimeMillis();
         Map<String, RobotStatus> newStatusEntries = new HashMap<>(statuses.size());
         List<String> taskKeys = new ArrayList<>(statuses.size());
         for(RobotStatus status : statuses) {
             newStatusEntries.put("cur-status:" + status.getId(), status);
-//            newStatusEntries.put("status:" + status.getId() + status.getTimestamp(), status);
+            newStatusEntries.put("status:" + status.getId() + status.getTimestamp(), status);
             taskKeys.add("cur-task:" + status.getId());
         }
+//        long time2 = System.currentTimeMillis();
         statusRedisTemplate.opsForValue().multiSet(newStatusEntries);
         List<RobotTask> tasks = taskRedisTemplate.opsForValue().multiGet(taskKeys);
+//        long time3 = System.currentTimeMillis();
 //        taskRedisTemplate.delete(newStatusEntries.keySet());
+//        System.out.println("interval1 = " + (time2 - time1));
+//        System.out.println("interval2 = " + (time3 - time2));
         return tasks;
     }
 

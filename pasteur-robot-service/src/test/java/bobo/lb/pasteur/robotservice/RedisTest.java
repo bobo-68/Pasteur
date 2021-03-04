@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,9 +22,10 @@ public class RedisTest {
     @BeforeEach
     private void prepareStatuses() {
         statusList = new ArrayList<>(20000);
-        for(int i = 0; i < 14000; i++) {
+        for(int i = 0; i < 20000; i++) {
             RobotStatus status = new RobotStatus();
             status.setId(i);
+            status.setTimestamp(LocalDateTime.now());
             statusList.add(status);
         }
     }
@@ -36,7 +38,7 @@ public class RedisTest {
         }
         long end = System.currentTimeMillis();
         System.out.println("Used time: " + (end - start));
-        // 大约需要 7.2 s
+        // 2800 ms
     }
 
     @Test
@@ -45,5 +47,6 @@ public class RedisTest {
         robotStatusDao.updateStatusAndGetTaskInBatch(statusList);
         long end = System.currentTimeMillis();
         System.out.println("Used time: " + (end - start));
+        // 500 ms
     }
 }

@@ -26,6 +26,20 @@ public class RobotStatus implements Serializable {
     // 时间戳
     private LocalDateTime timestamp;
 
+    public RobotStatus() {
+    }
+
+    public RobotStatus(long id, int battery, int disinfectant, int carriage, double xPos, double yPos, RobotStateEnum state, LocalDateTime timestamp) {
+        this.id = id;
+        this.battery = battery;
+        this.disinfectant = disinfectant;
+        this.carriage = carriage;
+        this.xPos = xPos;
+        this.yPos = yPos;
+        this.state = state;
+        this.timestamp = timestamp;
+    }
+
     public long getId() {
         return id;
     }

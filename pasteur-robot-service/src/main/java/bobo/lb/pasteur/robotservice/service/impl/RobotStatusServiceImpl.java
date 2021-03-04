@@ -45,7 +45,7 @@ public class RobotStatusServiceImpl implements RobotStatusService {
     public void writeStatus(RobotStatus status) {
         long id = status.getId();
         robotStatusDao.recordStatus(id, status);
-//        robotStatusDao.updateCurrentStatus(id, status);
+        robotStatusDao.updatestatusAndGetTask(id, status);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class RobotStatusServiceImpl implements RobotStatusService {
         long robotId = robotInfo.getId();
         String path = String.format(
                 "http://%s:%s/robots/%s/login",
-                "192.168.64.1", 9090, robotId);
+                "localhost", 9090, robotId);
 
 //        WebClient webClient = WebClient.create(path);
 //        webClient.post()

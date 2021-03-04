@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class MockClient {
 
-    private final String robotServerHost = "192.168.64.1";
+    private final String robotServerHost = "192.168.1.105";
     private final int robotServerPort = 8000;
     private final int CONCURRENCY;
     private final Selector selector;
@@ -37,6 +37,7 @@ public class MockClient {
     private final byte[] mockStatusBytes;
     private final byte[] mockInfoBytes;
     private ThreadLocal<ByteBuffer> readBuffer = new ThreadLocal<>();
+    private Serializer serializer = new Serializer();
 
     public MockClient(int concurrency) throws IOException {
         this.CONCURRENCY = concurrency;
@@ -57,12 +58,9 @@ public class MockClient {
                 carriage, xPos, yPos,
                 state, timestamp);
 
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
-            objectOutputStream.writeObject(mockStatus);
-            byte[] mockStatusRealBytes = byteArrayOutputStream.toByteArray();
-            mockStatusBytes = wrap(mockStatusRealBytes);
-        }
+
+        mockStatusBytes = wrap(serializer.serializeStatus(mockStatus), 1);
+
 
         // prepare mock info
 
@@ -72,12 +70,8 @@ public class MockClient {
         String station = "东川路";
         int trainId = 15;
         RobotInfo mockInfo = new RobotInfo(id2, host, line, station, trainId);
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-             ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
-            objectOutputStream.writeObject(mockInfo);
-            byte[] mockInfoRealBytes = byteArrayOutputStream.toByteArray();
-            mockInfoBytes = wrap(mockInfoRealBytes);
-        }
+        mockInfoBytes = wrap(serializer.serializeInfo(mockInfo), 0);
+
     }
 
     public void start() throws IOException, InterruptedException {
@@ -232,10 +226,11 @@ public class MockClient {
     }
 
 
-    private byte[] wrap(byte[] realBytes) {
-        byte[] bytes = new byte[realBytes.length + 4];
-        int2bytes(bytes, realBytes.length);
-        System.arraycopy(realBytes, 0, bytes, 4, realBytes.length);
+    private byte[] wrap(byte[] realBytes, int type) {
+        byte[] bytes = new byte[realBytes.length + 5];
+        int2bytes(bytes, realBytes.length + 1);
+        bytes[4] = (byte) type;
+        System.arraycopy(realBytes, 0, bytes, 5, realBytes.length);
         return bytes;
     }
 

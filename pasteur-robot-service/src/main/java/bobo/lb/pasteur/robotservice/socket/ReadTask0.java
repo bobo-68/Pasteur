@@ -1,13 +1,10 @@
 package bobo.lb.pasteur.robotservice.socket;
 
-import bobo.lb.pasteur.robotservice.dao.RobotStatusDao;
 import bobo.lb.pasteur.robotservice.dto.RobotInfo;
 import bobo.lb.pasteur.robotservice.dto.RobotStatus;
 import bobo.lb.pasteur.robotservice.service.RobotStatusService;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -17,7 +14,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
-public class ReadTask implements Runnable {
+public class ReadTask0 implements Runnable {
 
     private static final int ROBOT_STATUS_BUFFER_SIZE = 1024 * 1024;
 
@@ -33,22 +30,18 @@ public class ReadTask implements Runnable {
 
     private Serializer serializer;
 
-    private List<RobotStatus> statusList;
-
-    ReadTask(SelectionKey key,
-             CountDownLatch latch,
-             RobotStatusService robotStatusService,
-             ConcurrentHashMap<SelectionKey, byte[]> halfPackMap,
-             ThreadLocal<ByteBuffer> readBuffer,
-             Serializer serializer,
-             List<RobotStatus> statusList) {
+    ReadTask0(SelectionKey key,
+              CountDownLatch latch,
+              RobotStatusService robotStatusService,
+              ConcurrentHashMap<SelectionKey, byte[]> halfPackMap,
+              ThreadLocal<ByteBuffer> readBuffer,
+              Serializer serializer) {
         this.key = key;
         this.latch = latch;
         this.robotStatusService = robotStatusService;
         this.halfPackMap = halfPackMap;
         this.readBuffer = readBuffer;
         this.serializer = serializer;
-        this.statusList = statusList;
     }
 
     @Override
@@ -87,10 +80,7 @@ public class ReadTask implements Runnable {
                     RobotStatus robotStatus = (RobotStatus) message;
 
                     key.attach(robotStatus.getId());
-//                    robotStatusService.writeStatus(robotStatus);
-                    statusList.add(robotStatus);
-
-
+                    robotStatusService.writeStatus(robotStatus);
                 } else if (message instanceof RobotInfo) {
                     RobotInfo robotInfo = (RobotInfo) message;
                     key.attach(robotInfo.getId());
