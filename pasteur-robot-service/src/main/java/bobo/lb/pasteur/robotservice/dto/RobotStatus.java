@@ -7,36 +7,27 @@ import java.time.LocalDateTime;
 
 public class RobotStatus implements Serializable {
 
+    // 机器人 ID
     private long id;
-
+    // 剩余电量
     private int battery;
-
+    // 剩余消毒液
     private int disinfectant;
-
+    // 当前车厢号
     private int carriage;
-
+    // 当前 x 坐标
     private double xPos;
-
+    // 当前 y 坐标
     private double yPos;
-
+    // 当前状态
     private RobotStateEnum state;
-
+    // 当前任务
     private transient RobotTask task;
-
-    private boolean disconnect;
-
+    // 时间戳
     private LocalDateTime timestamp;
 
     public long getId() {
         return id;
-    }
-
-    public boolean disconnect() {
-        return disconnect;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
     }
 
     public void setId(long id) {
@@ -99,44 +90,11 @@ public class RobotStatus implements Serializable {
         this.task = task;
     }
 
-    public boolean isDisconnect() {
-        return disconnect;
-    }
-
-    public void setDisconnect(boolean disconnect) {
-        this.disconnect = disconnect;
+    public LocalDateTime getTimestamp() {
+        return timestamp;
     }
 
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
-    }
-
-    public RobotStatus(long id, int battery, int disinfectant,
-                       int carriage, double xPos, double yPos,
-                       RobotStateEnum state, LocalDateTime timestamp) {
-        this.id = id;
-        this.battery = battery;
-        this.disinfectant = disinfectant;
-        this.carriage = carriage;
-        this.xPos = xPos;
-        this.yPos = yPos;
-        this.state = state;
-        this.timestamp = timestamp;
-    }
-
-    @Override
-    public String toString() {
-        return "RobotStatus{" +
-                "id=" + id +
-                ", battery=" + battery +
-                ", disinfectant=" + disinfectant +
-                ", carriage=" + carriage +
-                ", xPos=" + xPos +
-                ", yPos=" + yPos +
-                ", state=" + state +
-                ", task=" + task +
-                ", disconnect=" + disconnect +
-                ", timestamp=" + timestamp +
-                '}';
     }
 }

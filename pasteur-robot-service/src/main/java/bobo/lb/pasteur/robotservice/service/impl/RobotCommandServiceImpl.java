@@ -30,7 +30,7 @@ public class RobotCommandServiceImpl implements RobotCommandService {
 
     @Override
     public RobotTask setTask(long robotId, RobotTask newTask) {
-        RobotCommand command = new RobotCommand(RobotCommandTypeEnum.SET_TASK, newTask);
+        RobotCommand command = new RobotCommand(newTask);
         return commandMap.put(robotId, command).getTask();
     }
 

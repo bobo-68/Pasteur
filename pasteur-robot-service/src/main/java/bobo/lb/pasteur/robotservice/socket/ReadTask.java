@@ -78,9 +78,7 @@ public class ReadTask implements Runnable {
 
                 if (message instanceof RobotStatus) {
                     RobotStatus robotStatus = (RobotStatus) message;
-                    if (robotStatus.disconnect()) {
-                        socketChannel.close();
-                    }
+
                     key.attach(robotStatus.getId());
                     robotStatusService.writeStatus(robotStatus);
                 } else if (message instanceof RobotInfo) {

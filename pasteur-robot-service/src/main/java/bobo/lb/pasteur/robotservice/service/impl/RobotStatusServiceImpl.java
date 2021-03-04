@@ -45,7 +45,7 @@ public class RobotStatusServiceImpl implements RobotStatusService {
     public void writeStatus(RobotStatus status) {
         long id = status.getId();
         robotStatusDao.recordStatus(id, status);
-        robotStatusDao.updateCurrentStatus(id, status);
+//        robotStatusDao.updateCurrentStatus(id, status);
     }
 
     @Override

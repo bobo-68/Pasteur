@@ -20,7 +20,7 @@ public class RobotServer {
 
     private ConcurrentHashMap<SelectionKey, byte[]> halfPackMap = new ConcurrentHashMap<>();
 
-    private static final String DEFAULT_IP = "192.168.64.1";
+    private static final String DEFAULT_IP = "localhost";
 
     private static final int DEFAULT_PORT = 8000;
 
@@ -73,13 +73,12 @@ public class RobotServer {
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         while(true) {
-            int readyKeyNum = selector.select();
-            if(readyKeyNum == 0) {
+            if(selector.select() == 0) {
                 continue;
             }
-            CountDownLatch latch = new CountDownLatch(readyKeyNum);
 
             Set<SelectionKey> selectedKeys = selector.selectedKeys();
+            CountDownLatch latch = new CountDownLatch(selectedKeys.size());
             Iterator<SelectionKey> iterator = selectedKeys.iterator();
             List<SocketChannel> registerList = new LinkedList<>();
             while(iterator.hasNext()) {

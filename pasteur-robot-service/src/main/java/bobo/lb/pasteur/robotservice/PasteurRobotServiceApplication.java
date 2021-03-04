@@ -9,6 +9,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
 
 @SpringBootApplication
 //@EnableEurekaClient
